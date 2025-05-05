@@ -124,3 +124,4 @@ if st.button("Get Articles"):
             )
     else:
         st.warning("Please enter both journal name and year.")
+
