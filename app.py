@@ -20,7 +20,7 @@ def clean_text(text):
 
 def search_journals(journal_name):
     encoded_name = quote(journal_name)
-    url = f"https://api.openalex.org/sources?search={encoded_name}&per-page=5"
+    url = f"https://api.openalex.org/sources?search={encoded_name}&per-page=10"
     response = requests.get(url)
     if response.status_code != 200:
         return []
@@ -58,15 +58,7 @@ def get_citations_by_year(article):
             citation_counts[year] = entry.get("cited_by_count", 0)
     return citation_counts
 
-def build_excel(journal_name, year):
-    matches = search_journals(journal_name)
-    if not matches:
-        return None, "No journal matches found."
-
-    selected = matches[0]
-    journal_id = selected["id"]
-    journal_name = selected["display_name"]
-
+def build_excel(journal_id, journal_name, year):
     articles = get_articles(journal_id, year)
     if not articles:
         return None, "No articles found for that journal/year."
@@ -106,12 +98,26 @@ def build_excel(journal_name, year):
 
 st.title("OpenAlex Journal Article Scraper")
 
-journal_name = st.text_input("Enter journal name")
+journal_name_input = st.text_input("Enter journal name")
 year = st.number_input("Enter year", min_value=1900, max_value=2100, step=1)
 
+selected_journal = None
+
+if journal_name_input and year:
+    matches = search_journals(journal_name_input)
+    if matches:
+        journal_display_names = [f"{j['display_name']} ({j['id'].split('/')[-1]})" for j in matches]
+        selection = st.selectbox("Select a journal from the matches:", journal_display_names)
+        selected_index = journal_display_names.index(selection)
+        selected_journal = matches[selected_index]
+    else:
+        st.warning("No journals found.")
+
 if st.button("Get Articles"):
-    if journal_name and year:
-        excel_data, error = build_excel(journal_name, int(year))
+    if selected_journal:
+        journal_id = selected_journal["id"]
+        journal_display_name = selected_journal["display_name"]
+        excel_data, error = build_excel(journal_id, journal_display_name, int(year))
         if error:
             st.error(error)
         else:
@@ -123,5 +129,5 @@ if st.button("Get Articles"):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
     else:
-        st.warning("Please enter both journal name and year.")
+        st.warning("Please enter a valid journal and year.")
 
